@@ -1,0 +1,455 @@
+// SocietyServe Prisma Schema
+// All schema changes must go through migrations — never modify DB directly
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// ENUMS
+// =============================================
+
+enum UserRole {
+  TENANT
+  PROVIDER
+  SOCIETY_ADMIN
+  SUPER_ADMIN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum ServiceCategory {
+  MAID
+  COOK
+  CLEANER
+  ELECTRICIAN
+  CARPENTER
+  PLUMBER
+}
+
+enum BookingType {
+  ONE_TIME
+  RECURRING
+  TRIAL
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  AUTO_CANCELLED
+}
+
+enum PaymentStatus {
+  INITIATED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PAYOUT_TRIGGERED
+  PAYOUT_COMPLETED
+  PAYOUT_FAILED
+}
+
+enum ComplaintType {
+  SAFETY    // handled by society admin
+  SERVICE   // handled by SocietyServe ops
+  PAYMENT   // handled by SocietyServe ops
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum JobStatus {
+  OPEN
+  BIDDING
+  ASSIGNED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum LoyaltyPlanDuration {
+  SIX_MONTHS
+  ANNUAL
+}
+
+enum LoyaltyPlanStatus {
+  ACTIVE
+  PAUSED
+  TERMINATED
+  COMPLETED
+}
+
+// =============================================
+// CORE MODELS
+// =============================================
+
+model User {
+  id          String   @id @default(cuid())
+  phone       String   @unique
+  role        UserRole
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenantProfile   TenantProfile?
+  providerProfile ProviderProfile?
+
+  @@map("users")
+}
+
+model Society {
+  id          String         @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  pincode     String
+  totalUnits  Int
+  adminUserId String?
+  isActive    Boolean        @default(false) // activated by SocietyServe ops
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  tenantProfiles            TenantProfile[]
+  providerSocietyMemberships ProviderSocietyMembership[]
+  bookings                  Booking[]
+  communityPosts            CommunityPost[]
+  communityGroups           CommunityGroup[]
+  jobBoardRequests          JobBoardRequest[]
+
+  @@map("societies")
+}
+
+model TenantProfile {
+  id             String         @id @default(cuid())
+  userId         String         @unique
+  societyId      String
+  flatNumber     String
+  fullName       String
+  profilePhotoUrl String?
+  approvalStatus ApprovalStatus @default(PENDING)
+  approvedAt     DateTime?
+  approvedBy     String?        // admin userId
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user     User    @relation(fields: [userId], references: [id])
+  society  Society @relation(fields: [societyId], references: [id])
+
+  bookings      Booking[]
+  reviews       Review[]
+  complaints    Complaint[]
+  loyaltyPlans  LoyaltyPlan[]
+  jobRequests   JobBoardRequest[]
+
+  @@unique([societyId, flatNumber])
+  @@map("tenant_profiles")
+}
+
+model ProviderProfile {
+  id              String          @id @default(cuid())
+  userId          String          @unique
+  fullName        String
+  profilePhotoUrl String?
+  serviceCategory ServiceCategory
+  bio             String?
+  experienceYears Int             @default(0)
+  hourlyRate      Decimal         @db.Decimal(10, 2)
+  upiId           String?
+  bankAccount     String?
+  bankIfsc        String?
+  avgRating       Decimal         @default(0) @db.Decimal(3, 2)
+  totalReviews    Int             @default(0)
+  isAvailable     Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  societyMemberships ProviderSocietyMembership[]
+  services           Service[]
+  bookings           Booking[]
+  reviews            Review[]
+  complaints         Complaint[]
+  jobBids            JobBoardBid[]
+  loyaltyPlans       LoyaltyPlan[]
+  blockedDates       ProviderBlockedDate[]
+
+  @@map("provider_profiles")
+}
+
+model ProviderSocietyMembership {
+  id             String         @id @default(cuid())
+  providerId     String
+  societyId      String
+  approvalStatus ApprovalStatus @default(PENDING)
+  approvedAt     DateTime?
+  approvedBy     String?        // admin userId
+  joinedAt       DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+  society  Society         @relation(fields: [societyId], references: [id])
+
+  @@unique([providerId, societyId])
+  @@map("provider_society_memberships")
+}
+
+model Service {
+  id              String          @id @default(cuid())
+  providerId      String
+  category        ServiceCategory
+  title           String
+  description     String?
+  price           Decimal         @db.Decimal(10, 2)
+  durationMinutes Int
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+  bookings Booking[]
+
+  @@map("services")
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  tenantId        String
+  providerId      String
+  serviceId       String
+  societyId       String
+  bookingType     BookingType
+  status          BookingStatus @default(PENDING)
+  scheduledAt     DateTime
+  completedAt     DateTime?
+  workerPrice     Decimal       @db.Decimal(10, 2)
+  platformFee     Decimal       @db.Decimal(10, 2)
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  recurrenceRule  Json?         // JSONB for recurring booking rules
+  notes           String?
+  autoAcceptDeadline DateTime?  // 2hr window deadline
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenant   TenantProfile   @relation(fields: [tenantId], references: [id])
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+  service  Service         @relation(fields: [serviceId], references: [id])
+  society  Society         @relation(fields: [societyId], references: [id])
+
+  payments   Payment[]
+  review     Review?
+  complaints Complaint[]
+
+  @@map("bookings")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  bookingId         String
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpayPayoutId  String?
+  status            PaymentStatus
+  workerAmount      Decimal       @db.Decimal(10, 2)
+  platformAmount    Decimal       @db.Decimal(10, 2)
+  totalAmount       Decimal       @db.Decimal(10, 2)
+  currency          String        @default("INR")
+  failureReason     String?
+  webhookPayload    Json?         // store raw webhook for audit
+  createdAt         DateTime      @default(now())
+  // NOTE: Payment records are APPEND-ONLY — never update, only insert new status entries
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("payments")
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  bookingId  String   @unique
+  tenantId   String
+  providerId String
+  rating     Int      // 1–5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  booking  Booking         @relation(fields: [bookingId], references: [id])
+  tenant   TenantProfile   @relation(fields: [tenantId], references: [id])
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+
+  @@map("reviews")
+}
+
+model Complaint {
+  id          String          @id @default(cuid())
+  bookingId   String?
+  tenantId    String
+  providerId  String
+  type        ComplaintType
+  status      ComplaintStatus @default(OPEN)
+  description String
+  resolution  String?
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  booking  Booking?        @relation(fields: [bookingId], references: [id])
+  tenant   TenantProfile   @relation(fields: [tenantId], references: [id])
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+
+  @@map("complaints")
+}
+
+model CommunityPost {
+  id        String   @id @default(cuid())
+  societyId String
+  authorId  String   // userId
+  groupId   String?  // null = open board or admin broadcast
+  content   String
+  photoUrl  String?
+  isPinned  Boolean  @default(false)
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  society Society        @relation(fields: [societyId], references: [id])
+  group   CommunityGroup? @relation(fields: [groupId], references: [id])
+  replies CommunityReply[]
+
+  @@map("community_posts")
+}
+
+model CommunityReply {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String   // userId
+  content   String
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  post CommunityPost @relation(fields: [postId], references: [id])
+
+  @@map("community_replies")
+}
+
+model CommunityGroup {
+  id          String   @id @default(cuid())
+  societyId   String
+  name        String
+  description String?
+  createdBy   String   // userId
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  society Society         @relation(fields: [societyId], references: [id])
+  posts   CommunityPost[]
+
+  @@map("community_groups")
+}
+
+model JobBoardRequest {
+  id             String     @id @default(cuid())
+  tenantId       String
+  societyId      String
+  category       ServiceCategory
+  description    String
+  photoUrl       String?
+  timePreference String     // e.g. "today_morning", "tomorrow_evening"
+  status         JobStatus  @default(OPEN)
+  selectedBidId  String?
+  expiresAt      DateTime
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  tenant  TenantProfile @relation(fields: [tenantId], references: [id])
+  society Society       @relation(fields: [societyId], references: [id])
+  bids    JobBoardBid[]
+
+  @@map("job_board_requests")
+}
+
+model JobBoardBid {
+  id          String   @id @default(cuid())
+  requestId   String
+  providerId  String
+  price       Decimal  @db.Decimal(10, 2)
+  estimatedMinutes Int
+  message     String?
+  isSelected  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  request  JobBoardRequest @relation(fields: [requestId], references: [id])
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+
+  @@unique([requestId, providerId])
+  @@map("job_board_bids")
+}
+
+model ProviderBlockedDate {
+  id         String   @id @default(cuid())
+  providerId String
+  date       String   // YYYY-MM-DD format
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+
+  @@unique([providerId, date])
+  @@map("provider_blocked_dates")
+}
+
+model LoyaltyPlan {
+  id            String              @id @default(cuid())
+  tenantId      String
+  providerId    String
+  duration      LoyaltyPlanDuration
+  status        LoyaltyPlanStatus   @default(ACTIVE)
+  totalAmount   Decimal             @db.Decimal(10, 2)
+  monthlyAmount Decimal             @db.Decimal(10, 2)
+  startDate     DateTime
+  endDate       DateTime
+  nextDisbursementDate DateTime
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  tenant   TenantProfile   @relation(fields: [tenantId], references: [id])
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+
+  escrowLedger EscrowLedger[]
+
+  @@map("loyalty_plans")
+}
+
+model EscrowLedger {
+  id            String   @id @default(cuid())
+  loyaltyPlanId String
+  amount        Decimal  @db.Decimal(10, 2)
+  description   String
+  disbursedAt   DateTime?
+  razorpayPayoutId String?
+  createdAt     DateTime @default(now())
+  // NOTE: Append-only — never update entries
+
+  loyaltyPlan LoyaltyPlan @relation(fields: [loyaltyPlanId], references: [id])
+
+  @@map("escrow_ledger")
+}

@@ -1,0 +1,16 @@
+{
+  "name": "societyserve",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "yarn workspace @societyserve/backend dev",
+    "dev:tenant": "yarn workspace @societyserve/tenant-app start",
+    "dev:provider": "yarn workspace @societyserve/provider-app start",
+    "dev:admin": "yarn workspace @societyserve/admin-panel dev",
+    "dev:internal": "yarn workspace @societyserve/internal-dashboard dev"
+  },
+  "packageManager": "yarn@4.0.0"
+}

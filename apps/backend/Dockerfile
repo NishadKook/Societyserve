@@ -13,7 +13,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
-RUN node_modules/.bin/nest build
+RUN npx tsc -p tsconfig.json
+RUN ls -la dist/ && echo "Build succeeded"
 
 # ── Production image ──────────────────────────────────────────────────────────
 FROM base AS runner

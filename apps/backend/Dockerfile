@@ -13,7 +13,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
-RUN npm run build
+RUN node_modules/.bin/nest build
 
 # ── Production image ──────────────────────────────────────────────────────────
 FROM base AS runner

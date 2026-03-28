@@ -13,7 +13,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
-RUN npx tsc -p tsconfig.json
+RUN npm run build
 RUN ls -la dist/ && echo "Build succeeded"
 
 # ── Production image ──────────────────────────────────────────────────────────

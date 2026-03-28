@@ -167,7 +167,7 @@ export default function SocietiesPage() {
                   { name: 'city', label: 'City', placeholder: 'Bangalore' },
                   { name: 'pincode', label: 'Pincode', placeholder: '560066' },
                   { name: 'totalUnits', label: 'Total Units', placeholder: '500', type: 'number' },
-                ] as const
+                ] as { name: 'name' | 'address' | 'city' | 'pincode' | 'totalUnits'; label: string; placeholder: string; type?: string }[]
               ).map(({ name, label, placeholder, type }) => (
                 <div key={name}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>

@@ -1,32 +1,24 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine
+
 RUN apk add --no-cache openssl
 
-# ── Install dependencies ──────────────────────────────────────────────────────
-FROM base AS deps
 WORKDIR /app
+
+# Install dependencies
 COPY package.json ./
 RUN npm install --legacy-peer-deps
 
-# ── Build ─────────────────────────────────────────────────────────────────────
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source
 COPY . .
+
+# Generate Prisma client
 RUN npx prisma generate
+
+# Build — compile TypeScript
 RUN npx tsc -p tsconfig.json
-RUN ls -la dist/ && echo "Build succeeded"
 
-# ── Production image ──────────────────────────────────────────────────────────
-FROM base AS runner
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV ENVIRONMENT=production
-
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./
+# Verify build output exists
+RUN ls -la dist/main.js
 
 EXPOSE 4000
 

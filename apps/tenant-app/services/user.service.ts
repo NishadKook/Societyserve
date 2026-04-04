@@ -7,6 +7,6 @@ export const userService = {
   createTenantProfile: (data: { fullName: string; flatNumber: string; societyId: string }) =>
     api.post('/users/tenant-profile', data),
 
-  updateTenantProfile: (data: { fullName: string; flatNumber: string }) =>
+  updateTenantProfile: (data: { fullName?: string; flatNumber?: string; profilePhotoUrl?: string }) =>
     api.put('/users/tenant-profile', data),
 };

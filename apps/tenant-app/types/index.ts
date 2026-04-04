@@ -62,6 +62,7 @@ export interface Booking {
   };
   service?: { title: string; durationMinutes: number } | null;
   review?: Review | null;
+  payment?: { id: string; status: string; amount: number } | null;
 }
 
 export interface Review {

@@ -1,18 +1,20 @@
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, Alert,
+  TouchableOpacity, Alert, Image, ActivityIndicator,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useAuthStore } from '@/stores/auth.store';
 import { userService } from '@/services/user.service';
 import { bookingsService } from '@/services/bookings.service';
+import { uploadService, pickImage } from '@/services/upload.service';
 import { CATEGORY_LABELS } from '@/utils/format';
 
 export default function ProfileScreen() {
-  const { providerProfile, phone, logout } = useAuthStore();
+  const { providerProfile, phone, logout, setProviderProfile } = useAuthStore();
   const queryClient = useQueryClient();
+  const [uploading, setUploading] = useState(false);
 
   // Refetch memberships every time this tab is focused so admin approval reflects immediately
   useFocusEffect(
@@ -42,16 +44,60 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleChangePhoto = async () => {
+    try {
+      const uri = await pickImage();
+      if (!uri) return;
+
+      setUploading(true);
+
+      const ext = uri.split('.').pop() ?? 'jpg';
+      const fileName = `profile.${ext}`;
+
+      const { data } = await uploadService.getSignedUrl('profiles', fileName);
+      await uploadService.uploadFile(data.signedUrl, uri);
+
+      await userService.updateProviderProfile({ profilePhotoUrl: data.publicUrl });
+
+      if (providerProfile) {
+        setProviderProfile({ ...providerProfile, profilePhotoUrl: data.publicUrl });
+      }
+
+      Alert.alert('Success', 'Profile photo updated');
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to upload photo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {providerProfile?.fullName?.charAt(0).toUpperCase() ?? '?'}
-            </Text>
-          </View>
+          <TouchableOpacity onPress={handleChangePhoto} disabled={uploading} activeOpacity={0.7}>
+            <View style={styles.avatarWrapper}>
+              {providerProfile?.profilePhotoUrl ? (
+                <Image source={{ uri: providerProfile.profilePhotoUrl }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {providerProfile?.fullName?.charAt(0).toUpperCase() ?? '?'}
+                  </Text>
+                </View>
+              )}
+              {uploading ? (
+                <View style={styles.avatarOverlay}>
+                  <ActivityIndicator color="#fff" />
+                </View>
+              ) : (
+                <View style={styles.cameraBadge}>
+                  <Text style={styles.cameraBadgeText}>+</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
           <Text style={styles.name}>{providerProfile?.fullName ?? '—'}</Text>
           <Text style={styles.category}>{CATEGORY_LABELS[providerProfile?.serviceCategory ?? ''] ?? ''}</Text>
           <Text style={styles.phone}>{phone}</Text>
@@ -154,6 +200,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
+  avatarWrapper: {
+    width: 80, height: 80, marginBottom: 12, position: 'relative',
+  },
   avatar: {
     width: 80,
     height: 80,
@@ -161,9 +210,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+  },
+  avatarImage: {
+    width: 80, height: 80, borderRadius: 40,
   },
   avatarText: { fontSize: 32, fontWeight: '700', color: '#16A34A' },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#16A34A',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#F9FAFB',
+  },
+  cameraBadgeText: { color: '#fff', fontSize: 16, fontWeight: '700', lineHeight: 18 },
   name: { fontSize: 22, fontWeight: '700', color: '#111827' },
   category: { fontSize: 14, color: '#16A34A', fontWeight: '600', marginTop: 2 },
   phone: { fontSize: 13, color: '#9CA3AF', marginTop: 4, marginBottom: 16 },

@@ -12,9 +12,10 @@ export const userService = {
   }) => api.post('/users/provider-profile', data),
 
   updateProviderProfile: (data: {
-    fullName: string;
-    experienceYears: number;
-    bio: string;
+    fullName?: string;
+    experienceYears?: number;
+    bio?: string;
+    profilePhotoUrl?: string;
   }) => api.put('/users/provider-profile', data),
 
   joinSociety: (societyId: string) =>

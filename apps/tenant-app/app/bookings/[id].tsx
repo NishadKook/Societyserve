@@ -140,6 +140,15 @@ export default function BookingDetailScreen() {
             </TouchableOpacity>
           )}
 
+          {booking.status === 'COMPLETED' && booking.payment?.status === 'INITIATED' && (
+            <TouchableOpacity
+              style={styles.payBtn}
+              onPress={() => router.push({ pathname: '/payments/checkout' as any, params: { bookingId: booking.id } })}
+            >
+              <Text style={styles.payBtnText}>Pay Now</Text>
+            </TouchableOpacity>
+          )}
+
           {booking.status === 'COMPLETED' && !booking.review && (
             <TouchableOpacity
               style={styles.reviewBtn}
@@ -237,6 +246,8 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: '#DC2626', fontWeight: '600', fontSize: 15 },
   completeBtn: { backgroundColor: '#059669', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   completeBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  payBtn: { backgroundColor: '#2563EB', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  payBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   reviewBtn: { backgroundColor: '#FEF3C7', borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: '#FCD34D' },
   reviewBtnText: { color: '#D97706', fontWeight: '700', fontSize: 15 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },

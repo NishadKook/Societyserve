@@ -16,6 +16,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { ComplaintsModule } from './modules/complaints/complaints.module';
 import { ServicesModule } from './modules/services/services.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AdminModule } from './modules/admin/admin.module';
     ComplaintsModule,
     ServicesModule,
     AdminModule,
+    UploadsModule,
   ],
 })
 export class AppModule {}

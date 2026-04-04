@@ -16,6 +16,7 @@ export interface ProviderProfile {
   fullName: string;
   serviceCategory: ServiceCategory;
   profilePhotoUrl: string | null;
+  idProofUrl: string | null;
   bio: string | null;
   experienceYears: number;
   avgRating: number;

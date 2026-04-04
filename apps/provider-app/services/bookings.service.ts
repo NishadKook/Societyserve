@@ -9,4 +9,6 @@ export const bookingsService = {
   accept: (id: string) => api.patch(`/bookings/${id}/accept`),
 
   reject: (id: string) => api.patch(`/bookings/${id}/reject`),
+
+  markArrived: (id: string) => api.patch(`/bookings/${id}/mark-arrived`),
 };

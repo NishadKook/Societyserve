@@ -34,6 +34,15 @@ export default function BookingDetailScreen() {
     onError: () => Alert.alert('Error', 'Failed to reject booking'),
   });
 
+  const arrivedMutation = useMutation({
+    mutationFn: () => bookingsService.markArrived(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['providerBookings'] });
+      void queryClient.invalidateQueries({ queryKey: ['booking', id] });
+    },
+    onError: () => Alert.alert('Error', 'Failed to mark as arrived'),
+  });
+
   const handleAccept = () => {
     Alert.alert('Accept Booking', 'Confirm you will take this job?', [
       { text: 'Cancel', style: 'cancel' },
@@ -45,6 +54,13 @@ export default function BookingDetailScreen() {
     Alert.alert('Decline Booking', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Decline', style: 'destructive', onPress: () => rejectMutation.mutate() },
+    ]);
+  };
+
+  const handleArrived = () => {
+    Alert.alert("I've Arrived", 'Confirm you have arrived at the location?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Confirm', onPress: () => arrivedMutation.mutate() },
     ]);
   };
 
@@ -129,6 +145,28 @@ export default function BookingDetailScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Actions for CONFIRMED — mark arrived */}
+      {booking.status === 'CONFIRMED' && (
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.arrivedBtn, arrivedMutation.isPending && styles.btnDisabled]}
+            onPress={handleArrived}
+            disabled={arrivedMutation.isPending}
+          >
+            {arrivedMutation.isPending
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={styles.arrivedText}>I've Arrived</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* In Progress indicator */}
+      {booking.status === 'IN_PROGRESS' && (
+        <View style={styles.inProgressCard}>
+          <Text style={styles.inProgressText}>Work in progress — waiting for tenant to confirm completion</Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -178,4 +216,19 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.5 },
   rejectText: { color: '#DC2626', fontSize: 14, fontWeight: '600' },
   acceptText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  arrivedBtn: {
+    flex: 1,
+    backgroundColor: '#16A34A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  arrivedText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  inProgressCard: {
+    backgroundColor: '#DBEAFE',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  inProgressText: { color: '#2563EB', fontSize: 14, fontWeight: '600', textAlign: 'center' },
 });

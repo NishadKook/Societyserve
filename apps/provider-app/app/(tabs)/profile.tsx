@@ -15,6 +15,8 @@ export default function ProfileScreen() {
   const { providerProfile, phone, logout, setProviderProfile } = useAuthStore();
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
+  const [uploadingId, setUploadingId] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Refetch memberships every time this tab is focused so admin approval reflects immediately
   useFocusEffect(
@@ -69,6 +71,56 @@ export default function ProfileScreen() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleUploadIdProof = async () => {
+    try {
+      const uri = await pickImage();
+      if (!uri) return;
+
+      setUploadingId(true);
+      const ext = uri.split('.').pop() ?? 'jpg';
+      const fileName = `id-proof.${ext}`;
+
+      const { data } = await uploadService.getSignedUrl('id-proofs', fileName);
+      await uploadService.uploadFile(data.signedUrl, uri);
+
+      await userService.updateProviderProfile({ idProofUrl: data.publicUrl });
+
+      if (providerProfile) {
+        setProviderProfile({ ...providerProfile, idProofUrl: data.publicUrl });
+      }
+
+      Alert.alert('Success', 'ID proof uploaded');
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to upload ID proof');
+    } finally {
+      setUploadingId(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently deactivate your account. You will not be able to log in again. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              await userService.deleteAccount();
+              await logout();
+            } catch (err: any) {
+              Alert.alert('Error', err?.message ?? 'Failed to delete account');
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -182,9 +234,47 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* ID Proof */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>ID Proof</Text>
+          {providerProfile?.idProofUrl ? (
+            <View style={styles.idProofStatus}>
+              <Text style={styles.idProofUploaded}>Uploaded</Text>
+              <TouchableOpacity onPress={handleUploadIdProof} disabled={uploadingId}>
+                <Text style={styles.addLink}>{uploadingId ? 'Uploading...' : 'Re-upload'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.idProofBtn}
+              onPress={handleUploadIdProof}
+              disabled={uploadingId}
+            >
+              {uploadingId ? (
+                <ActivityIndicator color="#16A34A" size="small" />
+              ) : (
+                <Text style={styles.idProofBtnText}>Upload Aadhaar / PAN</Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+
+        {/* Delete Account */}
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator color="#DC2626" size="small" />
+          ) : (
+            <Text style={styles.deleteText}>Delete Account</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -260,8 +350,28 @@ const styles = StyleSheet.create({
   approvalText: { fontSize: 11, fontWeight: '700', color: '#D97706' },
   approvedText: { color: '#16A34A' },
   rejectedText: { color: '#DC2626' },
+  idProofStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  idProofUploaded: {
+    fontSize: 14,
+    color: '#16A34A',
+    fontWeight: '600',
+  },
+  idProofBtn: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  idProofBtnText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
   logoutBtn: {
-    margin: 20,
+    marginHorizontal: 20,
+    marginTop: 20,
     borderWidth: 1,
     borderColor: '#FCA5A5',
     borderRadius: 12,
@@ -269,4 +379,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutText: { color: '#DC2626', fontSize: 15, fontWeight: '600' },
+  deleteBtn: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 40,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+  },
+  deleteText: { color: '#DC2626', fontSize: 15, fontWeight: '700' },
 });

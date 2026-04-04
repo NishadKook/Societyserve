@@ -1,7 +1,7 @@
 export type UserRole = 'TENANT' | 'PROVIDER' | 'SOCIETY_ADMIN' | 'SUPER_ADMIN';
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type BookingType = 'ONE_TIME' | 'RECURRING';
-export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'AUTO_CANCELLED';
+export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'AUTO_CANCELLED';
 export type ServiceCategory = 'MAID' | 'COOK' | 'CLEANER' | 'ELECTRICIAN' | 'CARPENTER' | 'PLUMBER';
 
 export interface User {
@@ -36,6 +36,7 @@ export interface Provider {
   profilePhotoUrl: string | null;
   bio: string | null;
   experienceYears: number;
+  hourlyRate: number;
   avgRating: number;
   totalReviews: number;
 }

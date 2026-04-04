@@ -9,4 +9,6 @@ export const userService = {
 
   updateTenantProfile: (data: { fullName?: string; flatNumber?: string; profilePhotoUrl?: string }) =>
     api.put('/users/tenant-profile', data),
+
+  deleteAccount: () => api.delete('/users/me'),
 };

@@ -11,6 +11,7 @@ import { CreateTenantProfileDto } from './dto/create-tenant-profile.dto';
 import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
 import { CreateProviderProfileDto } from './dto/create-provider-profile.dto';
 import { UpdateProviderProfileDto } from './dto/update-provider-profile.dto';
+import { BrowseProvidersDto } from './dto/browse-providers.dto';
 
 const MAX_PROVIDER_SOCIETIES = 5;
 
@@ -116,6 +117,7 @@ export class UsersService {
         hourlyRate: dto.hourlyRate,
         experienceYears: dto.experienceYears ?? 0,
         bio: dto.bio,
+        idProofUrl: dto.idProofUrl,
         upiId: dto.upiId,
         bankAccount: dto.bankAccount,
         bankIfsc: dto.bankIfsc,
@@ -198,21 +200,37 @@ export class UsersService {
 
   // ── Tenant: browse approved providers in their society ──────────────────────
 
-  async browseProviders(userId: string, category?: ServiceCategory) {
+  async browseProviders(userId: string, dto: BrowseProvidersDto) {
     const tenantProfile = await this.prisma.tenantProfile.findUnique({ where: { userId } });
     if (!tenantProfile) throw new NotFoundException('Tenant profile not found');
     if (tenantProfile.approvalStatus !== ApprovalStatus.APPROVED) {
       throw new ForbiddenException('Your account is not yet approved by the society admin');
     }
 
+    const { category, minRating, maxPrice, sortBy, search } = dto;
+
+    // Build provider-level filter
+    const providerWhere: Record<string, unknown> = { isAvailable: true };
+    if (category) providerWhere.serviceCategory = category;
+    if (minRating !== undefined) providerWhere.avgRating = { gte: minRating };
+    if (maxPrice !== undefined) providerWhere.hourlyRate = { lte: maxPrice };
+    if (search) {
+      providerWhere.OR = [
+        { fullName: { contains: search, mode: 'insensitive' } },
+        { bio: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Build sort order
+    let orderBy: Record<string, Record<string, string>> = { provider: { avgRating: 'desc' } };
+    if (sortBy === 'price') orderBy = { provider: { hourlyRate: 'asc' } };
+    else if (sortBy === 'experience') orderBy = { provider: { experienceYears: 'desc' } };
+
     return this.prisma.providerSocietyMembership.findMany({
       where: {
         societyId: tenantProfile.societyId,
         approvalStatus: ApprovalStatus.APPROVED,
-        provider: {
-          isAvailable: true,
-          ...(category && { serviceCategory: category }),
-        },
+        provider: providerWhere,
       },
       select: {
         provider: {
@@ -229,7 +247,7 @@ export class UsersService {
           },
         },
       },
-      orderBy: { provider: { avgRating: 'desc' } },
+      orderBy,
     });
   }
   async getProvider(providerId: string) {
@@ -298,6 +316,22 @@ export class UsersService {
     await this.prisma.providerBlockedDate.deleteMany({
       where: { providerId: profile.id, date },
     });
+  }
+
+  // ── Delete account (soft delete) ──────────────────────────────────────────
+
+  async deleteAccount(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    // Soft-delete: deactivate user
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false },
+    });
+
+    // Remove all device tokens
+    await this.prisma.deviceToken.deleteMany({ where: { userId } });
   }
 
   async getProviderAvailability(providerId: string, date: string): Promise<{ isBlocked: boolean }> {

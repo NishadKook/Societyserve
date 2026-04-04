@@ -31,7 +31,8 @@
         {
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "scheme": "societyserve",
     "experiments": {

@@ -77,9 +77,35 @@ export class BookingsController {
   @ApiOperation({ summary: 'Cancel a booking' })
   async cancelBooking(
     @Param('id') id: string,
+    @Body() body: { reason?: string },
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.bookingsService.cancelBooking(user.id, id);
+    return this.bookingsService.cancelBooking(user.id, id, body?.reason);
+  }
+
+  @Patch(':id/reschedule')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.TENANT)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reschedule a pending or confirmed booking' })
+  async rescheduleBooking(
+    @Param('id') id: string,
+    @Body() body: { newScheduledAt: string },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.bookingsService.rescheduleBooking(user.id, id, body.newScheduledAt);
+  }
+
+  @Post(':id/report-no-show')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.TENANT)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Report provider no-show — cancels booking and files complaint' })
+  async reportNoShow(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.bookingsService.reportNoShow(user.id, id);
   }
 
   // ── Provider ────────────────────────────────────────────────────────────────
@@ -93,6 +119,42 @@ export class BookingsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.bookingsService.listProviderBookings(user.id, dto);
+  }
+
+  @Get('provider/earnings')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PROVIDER)
+  @ApiOperation({ summary: 'Get provider earnings summary' })
+  async getProviderEarnings(@CurrentUser() user: AuthenticatedUser) {
+    return this.bookingsService.getProviderEarnings(user.id);
+  }
+
+  @Get('provider/transactions')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PROVIDER)
+  @ApiOperation({ summary: 'Get paginated provider transaction history' })
+  async getProviderTransactions(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.bookingsService.getProviderTransactions(
+      user.id,
+      Math.max(1, parseInt(page, 10) || 1),
+      Math.min(50, Math.max(1, parseInt(limit, 10) || 20)),
+    );
+  }
+
+  @Patch(':id/mark-arrived')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PROVIDER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mark arrival at tenant location (CONFIRMED → IN_PROGRESS)' })
+  async markArrived(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.bookingsService.markArrived(user.id, id);
   }
 
   @Patch(':id/accept')

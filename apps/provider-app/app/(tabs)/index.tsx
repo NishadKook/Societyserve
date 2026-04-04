@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
 import { bookingsService } from '@/services/bookings.service';
+import { earningsService } from '@/services/earnings.service';
 import { formatDate, formatTime, isToday, CATEGORY_LABELS } from '@/utils/format';
 import type { Booking } from '@/types';
 
@@ -12,6 +13,11 @@ export default function HomeScreen() {
   const { data: bookings, isLoading } = useQuery({
     queryKey: ['providerBookings'],
     queryFn: () => bookingsService.list().then((r) => r.data),
+  });
+
+  const { data: earnings } = useQuery({
+    queryKey: ['providerEarnings'],
+    queryFn: () => earningsService.getSummary().then((r) => r.data),
   });
 
   const pending = bookings?.filter((b) => b.status === 'PENDING') ?? [];
@@ -46,6 +52,19 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Reviews</Text>
           </View>
         </View>
+
+        <TouchableOpacity style={styles.earningsCard} onPress={() => router.push('/(tabs)/earnings')}>
+          <View style={styles.earningsLeft}>
+            <Text style={styles.earningsLabel}>Today's Earnings</Text>
+            <Text style={styles.earningsAmount}>
+              {'\u20B9'}{(earnings?.todayEarnings ?? 0).toLocaleString('en-IN')}
+            </Text>
+          </View>
+          <View style={styles.earningsRight}>
+            <Text style={styles.earningsWeek}>This week: {'\u20B9'}{(earnings?.weekEarnings ?? 0).toLocaleString('en-IN')}</Text>
+            <Text style={styles.earningsLink}>View all →</Text>
+          </View>
+        </TouchableOpacity>
 
         {pending.length > 0 && (
           <TouchableOpacity style={styles.alertBanner} onPress={() => router.push('/(tabs)/requests')}>
@@ -107,6 +126,27 @@ const styles = StyleSheet.create({
   statCardGreen: { backgroundColor: '#DCFCE7' },
   statNumber: { fontSize: 24, fontWeight: '800', color: '#111827' },
   statLabel: { fontSize: 11, color: '#6B7280', marginTop: 2, textAlign: 'center' },
+  earningsCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#16A34A',
+    marginHorizontal: 20,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#16A34A',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  earningsLeft: {},
+  earningsLabel: { fontSize: 12, color: '#BBF7D0', fontWeight: '500' },
+  earningsAmount: { fontSize: 28, fontWeight: '800', color: '#fff', marginTop: 2 },
+  earningsRight: { alignItems: 'flex-end' },
+  earningsWeek: { fontSize: 12, color: '#BBF7D0' },
+  earningsLink: { fontSize: 12, color: '#fff', fontWeight: '700', marginTop: 6 },
   alertBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FEF3C7', marginHorizontal: 20, borderRadius: 14, padding: 14, marginBottom: 24, borderWidth: 1, borderColor: '#FDE68A' },
   alertEmoji: { fontSize: 24 },
   alertTitle: { fontSize: 14, fontWeight: '600', color: '#92400E' },

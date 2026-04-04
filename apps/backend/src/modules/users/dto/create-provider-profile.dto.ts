@@ -39,6 +39,11 @@ export class CreateProviderProfileDto {
   @IsString()
   bio?: string;
 
+  @ApiPropertyOptional({ example: 'https://r2.example.com/id-proofs/aadhaar.jpg' })
+  @IsOptional()
+  @IsString()
+  idProofUrl?: string;
+
   @ApiPropertyOptional({ example: 'priya@okaxis' })
   @IsOptional()
   @IsString()

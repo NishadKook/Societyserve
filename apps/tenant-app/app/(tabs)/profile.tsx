@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  Alert, Image, ActivityIndicator,
+  Alert, Image, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '@/stores/auth.store';
@@ -11,6 +11,7 @@ import { uploadService, pickImage } from '@/services/upload.service';
 export default function ProfileScreen() {
   const { tenantProfile, phone, logout, setTenantProfile } = useAuthStore();
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -46,9 +47,33 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently deactivate your account. You will not be able to log in again. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              await userService.deleteAccount();
+              await logout();
+            } catch (err: any) {
+              Alert.alert('Error', err?.message ?? 'Failed to delete account');
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleChangePhoto} disabled={uploading} activeOpacity={0.7}>
             <View style={styles.avatarWrapper}>
@@ -106,7 +131,19 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
-      </View>
+
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator color="#DC2626" size="small" />
+          ) : (
+            <Text style={styles.deleteText}>Delete Account</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -162,4 +199,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center', backgroundColor: '#FFF5F5',
   },
   logoutText: { color: '#DC2626', fontWeight: '600', fontSize: 15 },
+  deleteBtn: {
+    marginTop: 12,
+    marginBottom: 40,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+  },
+  deleteText: { color: '#DC2626', fontSize: 15, fontWeight: '700' },
 });

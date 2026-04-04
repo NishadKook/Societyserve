@@ -24,6 +24,7 @@ import { CreateTenantProfileDto } from './dto/create-tenant-profile.dto';
 import { UpdateTenantProfileDto } from './dto/update-tenant-profile.dto';
 import { CreateProviderProfileDto } from './dto/create-provider-profile.dto';
 import { UpdateProviderProfileDto } from './dto/update-provider-profile.dto';
+import { BrowseProvidersDto } from './dto/browse-providers.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -41,6 +42,14 @@ export class UsersController {
   @ApiOperation({ summary: 'Get current user with profile' })
   async getMe(@CurrentUser() user: AuthenticatedUser) {
     return this.usersService.getMe(user.id, user.role);
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete (deactivate) current user account' })
+  @ApiResponse({ status: 204, description: 'Account deactivated' })
+  async deleteMe(@CurrentUser() user: AuthenticatedUser) {
+    await this.usersService.deleteAccount(user.id);
   }
 
   // ── Tenant profile ──────────────────────────────────────────────────────────
@@ -118,12 +127,11 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.TENANT)
   @ApiOperation({ summary: 'Browse approved providers in your society' })
-  @ApiQuery({ name: 'category', enum: ServiceCategory, required: false })
   async browseProviders(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('category') category?: ServiceCategory,
+    @Query() dto: BrowseProvidersDto,
   ) {
-    return this.usersService.browseProviders(user.id, category);
+    return this.usersService.browseProviders(user.id, dto);
   }
 
   @Get('providers/:providerId')

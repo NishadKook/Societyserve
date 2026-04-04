@@ -15,6 +15,11 @@ export class UpdateProviderProfileDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  idProofUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @IsPositive()

@@ -9,6 +9,7 @@ export const userService = {
     serviceCategory: string;
     experienceYears: number;
     bio: string;
+    idProofUrl?: string;
   }) => api.post('/users/provider-profile', data),
 
   updateProviderProfile: (data: {
@@ -16,7 +17,10 @@ export const userService = {
     experienceYears?: number;
     bio?: string;
     profilePhotoUrl?: string;
+    idProofUrl?: string;
   }) => api.put('/users/provider-profile', data),
+
+  deleteAccount: () => api.delete('/users/me'),
 
   joinSociety: (societyId: string) =>
     api.post(`/users/provider-profile/join-society/${societyId}`),

@@ -22,6 +22,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
 export const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pending',
   CONFIRMED: 'Confirmed',
+  IN_PROGRESS: 'In Progress',
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
   AUTO_CANCELLED: 'Expired',
@@ -30,6 +31,7 @@ export const STATUS_LABELS: Record<string, string> = {
 export const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   PENDING: { bg: '#FEF3C7', text: '#D97706' },
   CONFIRMED: { bg: '#DBEAFE', text: '#2563EB' },
+  IN_PROGRESS: { bg: '#E0E7FF', text: '#4F46E5' },
   COMPLETED: { bg: '#D1FAE5', text: '#059669' },
   CANCELLED: { bg: '#F3F4F6', text: '#6B7280' },
   AUTO_CANCELLED: { bg: '#F3F4F6', text: '#9CA3AF' },

@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { userService } from '@/services/user.service';
+import { uploadService, pickImage } from '@/services/upload.service';
 import type { ServiceCategory } from '@/types';
 
 const CATEGORIES: { key: ServiceCategory; label: string; emoji: string }[] = [
@@ -21,7 +22,28 @@ export default function SetupScreen() {
   const [category, setCategory] = useState<ServiceCategory | null>(null);
   const [experience, setExperience] = useState('');
   const [bio, setBio] = useState('');
+  const [idProofUrl, setIdProofUrl] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const handlePickIdProof = async () => {
+    try {
+      const uri = await pickImage();
+      if (!uri) return;
+
+      setUploadingId(true);
+      const ext = uri.split('.').pop() ?? 'jpg';
+      const fileName = `id-proof.${ext}`;
+
+      const { data } = await uploadService.getSignedUrl('id-proofs', fileName);
+      await uploadService.uploadFile(data.signedUrl, uri);
+      setIdProofUrl(data.publicUrl);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to upload ID proof');
+    } finally {
+      setUploadingId(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!fullName.trim()) { Alert.alert('Required', 'Enter your full name'); return; }
@@ -39,6 +61,7 @@ export default function SetupScreen() {
         serviceCategory: category,
         experienceYears: expYears,
         bio: bio.trim(),
+        ...(idProofUrl ? { idProofUrl } : {}),
       });
       router.replace('/(auth)/pending');
     } catch (err: unknown) {
@@ -101,6 +124,21 @@ export default function SetupScreen() {
         numberOfLines={3}
       />
 
+      <Text style={styles.label}>Upload ID Proof (Aadhaar/PAN)</Text>
+      <TouchableOpacity
+        style={[styles.idProofBtn, idProofUrl && styles.idProofBtnDone]}
+        onPress={handlePickIdProof}
+        disabled={uploadingId}
+      >
+        {uploadingId ? (
+          <ActivityIndicator color="#16A34A" />
+        ) : (
+          <Text style={[styles.idProofBtnText, idProofUrl && styles.idProofBtnTextDone]}>
+            {idProofUrl ? 'ID Proof Uploaded' : 'Select Photo of ID'}
+          </Text>
+        )}
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={[styles.button, submitting && styles.buttonDisabled]}
         onPress={handleSubmit}
@@ -146,6 +184,23 @@ const styles = StyleSheet.create({
   categoryEmoji: { fontSize: 16 },
   categoryLabel: { fontSize: 13, fontWeight: '500', color: '#374151' },
   categoryLabelActive: { color: '#15803D', fontWeight: '700' },
+  idProofBtn: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginBottom: 16,
+    borderStyle: 'dashed' as any,
+  },
+  idProofBtnDone: {
+    borderColor: '#16A34A',
+    backgroundColor: '#F0FDF4',
+    borderStyle: 'solid' as any,
+  },
+  idProofBtnText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+  idProofBtnTextDone: { color: '#16A34A' },
   button: {
     backgroundColor: '#16A34A',
     borderRadius: 12,

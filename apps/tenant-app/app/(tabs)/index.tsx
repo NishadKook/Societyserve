@@ -3,7 +3,8 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
 import { bookingsService } from '@/services/bookings.service';
-import type { ServiceCategory } from '@/types';
+import { CATEGORY_LABELS } from '@/utils/format';
+import type { ServiceCategory, Booking } from '@/types';
 
 const CATEGORIES: { key: ServiceCategory; label: string; emoji: string; color: string }[] = [
   { key: 'MAID', label: 'Maid', emoji: '🧹', color: '#EFF6FF' },
@@ -24,6 +25,9 @@ export default function HomeScreen() {
   });
 
   const upcoming = bookings?.filter((b) => b.status === 'PENDING' || b.status === 'CONFIRMED') ?? [];
+
+  // Recently booked: unique providers from completed bookings
+  const recentlyBooked = getRecentlyBookedProviders(bookings ?? []);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -64,9 +68,86 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Recently Booked Providers */}
+        {recentlyBooked.length > 0 && (
+          <View style={styles.recentSection}>
+            <Text style={styles.sectionTitle}>Recently Booked</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.recentList}
+            >
+              {recentlyBooked.map((item) => (
+                <TouchableOpacity
+                  key={item.provider.id}
+                  style={styles.recentCard}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/providers/[providerId]',
+                      params: { providerId: item.provider.id },
+                    })
+                  }
+                >
+                  <View style={styles.recentAvatar}>
+                    <Text style={styles.recentAvatarText}>
+                      {item.provider.fullName.charAt(0)}
+                    </Text>
+                  </View>
+                  <Text style={styles.recentName} numberOfLines={1}>
+                    {item.provider.fullName}
+                  </Text>
+                  <Text style={styles.recentCategory}>
+                    {CATEGORY_LABELS[item.provider.serviceCategory] ?? item.provider.serviceCategory}
+                  </Text>
+                  <View style={styles.recentRatingRow}>
+                    <Text style={styles.recentStar}>⭐</Text>
+                    <Text style={styles.recentRating}>
+                      {item.avgRating != null ? Number(item.avgRating).toFixed(1) : '--'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Bottom spacer */}
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+interface RecentProvider {
+  provider: {
+    id: string;
+    fullName: string;
+    serviceCategory: ServiceCategory;
+    profilePhotoUrl: string | null;
+  };
+  avgRating: number | null;
+}
+
+function getRecentlyBookedProviders(bookings: Booking[]): RecentProvider[] {
+  const completed = bookings
+    .filter((b) => b.status === 'COMPLETED')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const seen = new Set<string>();
+  const result: RecentProvider[] = [];
+
+  for (const booking of completed) {
+    if (seen.has(booking.provider.id)) continue;
+    seen.add(booking.provider.id);
+    result.push({
+      provider: booking.provider,
+      avgRating: booking.review?.rating ?? null,
+    });
+    if (result.length >= 5) break;
+  }
+
+  return result;
 }
 
 const styles = StyleSheet.create({
@@ -118,4 +199,35 @@ const styles = StyleSheet.create({
   },
   categoryEmoji: { fontSize: 32, marginBottom: 8 },
   categoryLabel: { fontSize: 12, fontWeight: '600', color: '#374151', textAlign: 'center' },
+
+  // Recently Booked section
+  recentSection: { marginTop: 24 },
+  recentList: { paddingHorizontal: 16, gap: 12 },
+  recentCard: {
+    width: 120,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  recentAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  recentAvatarText: { fontSize: 20, fontWeight: '700', color: '#2563EB' },
+  recentName: { fontSize: 13, fontWeight: '600', color: '#111827', textAlign: 'center', marginBottom: 2 },
+  recentCategory: { fontSize: 11, color: '#6B7280', marginBottom: 4 },
+  recentRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  recentStar: { fontSize: 12 },
+  recentRating: { fontSize: 13, fontWeight: '700', color: '#111827' },
 });

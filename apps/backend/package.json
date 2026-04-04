@@ -23,6 +23,7 @@
     "@nestjs/swagger": "^7.0.0",
     "@nestjs/throttler": "^5.0.0",
     "@prisma/client": "^5.0.0",
+    "@supabase/supabase-js": "^2.101.1",
     "axios": "^1.6.0",
     "bull": "^4.0.0",
     "bullmq": "^5.0.0",

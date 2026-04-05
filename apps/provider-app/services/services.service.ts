@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Service } from '@/types';
+import type { Service, ServiceSchedule } from '@/types';
 
 export const servicesService = {
   list: () => api.get<Service[]>('/services/my'),
@@ -10,6 +10,9 @@ export const servicesService = {
     description?: string;
     price: number;
     durationMinutes: number;
+    monthlyPrice?: number;
+    trialPrice?: number;
+    schedule?: ServiceSchedule;
   }) => api.post<Service>('/services', data),
 
   update: (id: string, data: {
@@ -18,6 +21,9 @@ export const servicesService = {
     price?: number;
     durationMinutes?: number;
     isActive?: boolean;
+    monthlyPrice?: number;
+    trialPrice?: number;
+    schedule?: ServiceSchedule;
   }) => api.patch<Service>(`/services/${id}`, data),
 
   remove: (id: string) => api.delete(`/services/${id}`),

@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { ProviderMembership, Provider, Review } from '@/types';
+import type { ProviderMembership, Provider, Review, ProviderService } from '@/types';
 import type { ServiceCategory } from '@/types';
 
 export interface BrowseFilters {
@@ -33,7 +33,7 @@ export const providersService = {
     ),
 
   getServices: (providerId: string) =>
-    api.get<{ id: string; title: string; description: string; price: string; durationMinutes: number; category: string }[]>(
+    api.get<ProviderService[]>(
       `/users/providers/${providerId}/services`
     ),
 };

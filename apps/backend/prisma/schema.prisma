@@ -227,6 +227,9 @@ model Service {
   title           String
   description     String?
   price           Decimal         @db.Decimal(10, 2)
+  monthlyPrice    Decimal?        @db.Decimal(10, 2)
+  trialPrice      Decimal?        @db.Decimal(10, 2)
+  schedule        Json?
   durationMinutes Int
   isActive        Boolean         @default(true)
   createdAt       DateTime        @default(now())

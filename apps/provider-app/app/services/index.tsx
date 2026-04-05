@@ -6,10 +6,18 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { servicesService } from '@/services/services.service';
 import { useAuthStore } from '@/stores/auth.store';
-import type { Service, ServiceCategory } from '@/types';
+import type { Service, ServiceCategory, ServiceSchedule } from '@/types';
 import { CATEGORY_LABELS } from '@/utils/format';
+import { isRecurringCategory } from '@/utils/categories';
 
 const DURATION_OPTIONS = [30, 45, 60, 90, 120, 180, 240];
+const DAYS_PER_WEEK_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
+const TIME_SLOT_OPTIONS = [
+  '05:00-07:00', '06:00-08:00', '07:00-09:00', '08:00-10:00',
+  '09:00-11:00', '10:00-12:00', '11:00-13:00', '12:00-14:00',
+  '14:00-16:00', '16:00-18:00', '17:00-19:00', '18:00-20:00',
+  '19:00-21:00', '20:00-22:00',
+];
 
 function formatDuration(mins: number): string {
   if (mins < 60) return `${mins} min`;
@@ -18,15 +26,33 @@ function formatDuration(mins: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function formatTimeSlot(slot: string): string {
+  const [start, end] = slot.split('-');
+  const fmt = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${hour}:${String(m).padStart(2, '0')} ${period}`;
+  };
+  return `${fmt(start)} - ${fmt(end)}`;
+}
+
 export default function MyServicesScreen() {
   const queryClient = useQueryClient();
   const providerProfile = useAuthStore((s) => s.providerProfile);
   const [showForm, setShowForm] = useState(false);
 
+  const category = providerProfile?.serviceCategory ?? '';
+  const recurring = isRecurringCategory(category);
+
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [monthlyPrice, setMonthlyPrice] = useState('');
+  const [trialPrice, setTrialPrice] = useState('');
+  const [daysPerWeek, setDaysPerWeek] = useState(6);
+  const [timeSlot, setTimeSlot] = useState('07:00-09:00');
   const [durationIdx, setDurationIdx] = useState(2); // default 60 min
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -40,8 +66,13 @@ export default function MyServicesScreen() {
       category: providerProfile!.serviceCategory,
       title: title.trim(),
       description: description.trim() || undefined,
-      price: parseFloat(price),
+      price: parseFloat(price || '0'),
       durationMinutes: DURATION_OPTIONS[durationIdx],
+      ...(recurring ? {
+        monthlyPrice: parseFloat(monthlyPrice),
+        trialPrice: parseFloat(trialPrice),
+        schedule: { daysPerWeek, timeSlot } as ServiceSchedule,
+      } : {}),
     }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['myServices'] });
@@ -57,8 +88,13 @@ export default function MyServicesScreen() {
     mutationFn: (id: string) => servicesService.update(id, {
       title: title.trim(),
       description: description.trim() || undefined,
-      price: parseFloat(price),
+      price: parseFloat(price || '0'),
       durationMinutes: DURATION_OPTIONS[durationIdx],
+      ...(recurring ? {
+        monthlyPrice: parseFloat(monthlyPrice),
+        trialPrice: parseFloat(trialPrice),
+        schedule: { daysPerWeek, timeSlot } as ServiceSchedule,
+      } : {}),
     }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['myServices'] });
@@ -81,6 +117,10 @@ export default function MyServicesScreen() {
     setTitle('');
     setDescription('');
     setPrice('');
+    setMonthlyPrice('');
+    setTrialPrice('');
+    setDaysPerWeek(6);
+    setTimeSlot('07:00-09:00');
     setDurationIdx(2);
     setEditingId(null);
     setShowForm(false);
@@ -90,6 +130,12 @@ export default function MyServicesScreen() {
     setTitle(service.title);
     setDescription(service.description ?? '');
     setPrice(String(parseFloat(service.price)));
+    if (service.monthlyPrice) setMonthlyPrice(String(parseFloat(service.monthlyPrice)));
+    if (service.trialPrice) setTrialPrice(String(parseFloat(service.trialPrice)));
+    if (service.schedule) {
+      setDaysPerWeek(service.schedule.daysPerWeek);
+      setTimeSlot(service.schedule.timeSlot);
+    }
     const dIdx = DURATION_OPTIONS.indexOf(service.durationMinutes);
     setDurationIdx(dIdx >= 0 ? dIdx : 2);
     setEditingId(service.id);
@@ -98,8 +144,25 @@ export default function MyServicesScreen() {
 
   const handleSubmit = () => {
     if (!title.trim()) { Alert.alert('Required', 'Enter a service title'); return; }
-    const p = parseFloat(price);
-    if (!price || isNaN(p) || p < 0) { Alert.alert('Required', 'Enter a valid price'); return; }
+
+    if (recurring) {
+      const mp = parseFloat(monthlyPrice);
+      const tp = parseFloat(trialPrice);
+      if (!monthlyPrice || isNaN(mp) || mp < 0) {
+        Alert.alert('Required', 'Enter a valid monthly price');
+        return;
+      }
+      if (!trialPrice || isNaN(tp) || tp < 0) {
+        Alert.alert('Required', 'Enter a valid trial price');
+        return;
+      }
+    } else {
+      const p = parseFloat(price);
+      if (!price || isNaN(p) || p < 0) {
+        Alert.alert('Required', 'Enter a valid price');
+        return;
+      }
+    }
 
     if (editingId) {
       updateMutation.mutate(editingId);
@@ -109,7 +172,6 @@ export default function MyServicesScreen() {
   };
 
   const handleToggle = (service: Service) => {
-    const action = service.isActive ? 'deactivate' : 'activate';
     Alert.alert(
       service.isActive ? 'Deactivate Service' : 'Activate Service',
       `${service.isActive ? 'Hide' : 'Show'} this service from tenants?`,
@@ -151,6 +213,7 @@ export default function MyServicesScreen() {
           renderItem={({ item }) => (
             <ServiceCard
               service={item}
+              isRecurring={recurring}
               onEdit={() => openEdit(item)}
               onToggle={() => handleToggle(item)}
             />
@@ -182,7 +245,7 @@ export default function MyServicesScreen() {
               style={styles.input}
               value={title}
               onChangeText={setTitle}
-              placeholder="e.g. Daily House Cleaning"
+              placeholder={recurring ? 'e.g. Daily House Cleaning' : 'e.g. Electrical Repair'}
               placeholderTextColor="#9CA3AF"
               maxLength={100}
             />
@@ -200,15 +263,76 @@ export default function MyServicesScreen() {
               maxLength={500}
             />
 
-            <Text style={styles.fieldLabel}>Price (₹) *</Text>
-            <TextInput
-              style={styles.input}
-              value={price}
-              onChangeText={setPrice}
-              keyboardType="decimal-pad"
-              placeholder="e.g. 299"
-              placeholderTextColor="#9CA3AF"
-            />
+            {recurring ? (
+              <>
+                {/* Monthly Price */}
+                <Text style={styles.fieldLabel}>Monthly Price (₹) *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={monthlyPrice}
+                  onChangeText={setMonthlyPrice}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 3000"
+                  placeholderTextColor="#9CA3AF"
+                />
+
+                {/* Trial Price */}
+                <Text style={styles.fieldLabel}>Trial Price - 1 Day (₹) *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={trialPrice}
+                  onChangeText={setTrialPrice}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 199"
+                  placeholderTextColor="#9CA3AF"
+                />
+
+                {/* Schedule: Days per week */}
+                <Text style={styles.fieldLabel}>Days per Week</Text>
+                <View style={styles.durationRow}>
+                  {DAYS_PER_WEEK_OPTIONS.map((d) => (
+                    <TouchableOpacity
+                      key={d}
+                      style={[styles.durationChip, daysPerWeek === d && styles.durationChipActive]}
+                      onPress={() => setDaysPerWeek(d)}
+                    >
+                      <Text style={[styles.durationChipText, daysPerWeek === d && styles.durationChipTextActive]}>
+                        {d}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Schedule: Time slot */}
+                <Text style={styles.fieldLabel}>Time Slot</Text>
+                <View style={styles.durationRow}>
+                  {TIME_SLOT_OPTIONS.map((slot) => (
+                    <TouchableOpacity
+                      key={slot}
+                      style={[styles.timeSlotChip, timeSlot === slot && styles.durationChipActive]}
+                      onPress={() => setTimeSlot(slot)}
+                    >
+                      <Text style={[styles.durationChipText, timeSlot === slot && styles.durationChipTextActive]}>
+                        {formatTimeSlot(slot)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <>
+                {/* On-demand: single price */}
+                <Text style={styles.fieldLabel}>Price per Visit (₹) *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={price}
+                  onChangeText={setPrice}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 299"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </>
+            )}
 
             <Text style={styles.fieldLabel}>Duration</Text>
             <View style={styles.durationRow}>
@@ -232,9 +356,10 @@ export default function MyServicesScreen() {
 }
 
 function ServiceCard({
-  service, onEdit, onToggle,
+  service, isRecurring, onEdit, onToggle,
 }: {
   service: Service;
+  isRecurring: boolean;
   onEdit: () => void;
   onToggle: () => void;
 }) {
@@ -257,10 +382,26 @@ function ServiceCard({
       </View>
 
       <View style={styles.cardMeta}>
-        <Text style={styles.metaText}>₹{parseFloat(service.price).toFixed(0)}</Text>
+        {isRecurring && service.monthlyPrice ? (
+          <>
+            <Text style={styles.metaText}>₹{parseFloat(service.monthlyPrice).toFixed(0)}/mo</Text>
+            <View style={styles.dot} />
+            <Text style={styles.metaTextSecondary}>Trial ₹{parseFloat(service.trialPrice ?? '0').toFixed(0)}</Text>
+          </>
+        ) : (
+          <Text style={styles.metaText}>₹{parseFloat(service.price).toFixed(0)}/visit</Text>
+        )}
         <View style={styles.dot} />
         <Text style={styles.metaText}>{formatDuration(service.durationMinutes)}</Text>
       </View>
+
+      {isRecurring && service.schedule && (
+        <View style={styles.scheduleRow}>
+          <Text style={styles.scheduleText}>
+            {service.schedule.daysPerWeek} days/week · {formatTimeSlot(service.schedule.timeSlot)}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.editBtn} onPress={onEdit}>
@@ -306,9 +447,14 @@ const styles = StyleSheet.create({
   inactiveBadge: { backgroundColor: '#F3F4F6' },
   activeBadgeText: { fontSize: 11, fontWeight: '700', color: '#16A34A' },
   inactiveBadgeText: { color: '#9CA3AF' },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   metaText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  metaTextSecondary: { fontSize: 13, fontWeight: '500', color: '#6B7280' },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#9CA3AF' },
+  scheduleRow: {
+    backgroundColor: '#F0FDF4', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8,
+  },
+  scheduleText: { fontSize: 12, fontWeight: '500', color: '#16A34A' },
   cardActions: { flexDirection: 'row', gap: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 12 },
   editBtn: {
     flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB',
@@ -332,7 +478,7 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 15, color: '#6B7280' },
   saveText: { fontSize: 15, fontWeight: '700', color: '#16A34A' },
   form: { flex: 1 },
-  formContent: { padding: 20, gap: 4 },
+  formContent: { padding: 20, gap: 4, paddingBottom: 40 },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginTop: 16, marginBottom: 8 },
   input: {
     borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
@@ -352,4 +498,8 @@ const styles = StyleSheet.create({
   durationChipActive: { backgroundColor: '#DCFCE7', borderColor: '#16A34A' },
   durationChipText: { fontSize: 13, fontWeight: '500', color: '#374151' },
   durationChipTextActive: { color: '#16A34A', fontWeight: '700' },
+  timeSlotChip: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+    borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff',
+  },
 });

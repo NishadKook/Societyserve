@@ -40,12 +40,20 @@ export interface Society {
   totalUnits: number;
 }
 
+export interface ServiceSchedule {
+  daysPerWeek: number;
+  timeSlot: string; // e.g. "07:00-09:00"
+}
+
 export interface Service {
   id: string;
   category: ServiceCategory;
   title: string;
   description: string | null;
-  price: string; // Decimal returned as string from Prisma
+  price: string; // Decimal returned as string from Prisma (per-visit for on-demand)
+  monthlyPrice: string | null; // Monthly subscription price for recurring categories
+  trialPrice: string | null; // 1-day trial price for recurring categories
+  schedule: ServiceSchedule | null; // Schedule for recurring categories
   durationMinutes: number;
   isActive: boolean;
   createdAt: string;

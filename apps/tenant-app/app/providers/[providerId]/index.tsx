@@ -6,7 +6,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { providersService } from '@/services/providers.service';
 import { CATEGORY_LABELS, formatDate } from '@/utils/format';
-import type { Review } from '@/types';
+import { isRecurringCategory } from '@/utils/categories';
+import type { Review, ProviderService } from '@/types';
 
 function get60Days() {
   const days: { dateStr: string; dayNum: string; dayLabel: string; monthLabel: string }[] = [];
@@ -38,6 +39,17 @@ function getDayStatus(
   return 'available';
 }
 
+function formatTimeSlot(slot: string): string {
+  const [start, end] = slot.split('-');
+  const fmt = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${hour}:${String(m).padStart(2, '0')} ${period}`;
+  };
+  return `${fmt(start)} - ${fmt(end)}`;
+}
+
 export default function ProviderDetailScreen() {
   const { providerId } = useLocalSearchParams<{ providerId: string }>();
 
@@ -58,6 +70,15 @@ export default function ProviderDetailScreen() {
     queryFn: () => providersService.getAvailability(providerId).then((r) => r.data),
     enabled: !!providerId,
   });
+
+  const { data: services } = useQuery({
+    queryKey: ['providerServices', providerId],
+    queryFn: () => providersService.getServices(providerId).then((r) => r.data),
+    enabled: !!providerId,
+  });
+
+  const service: ProviderService | undefined = services?.[0];
+  const recurring = provider ? isRecurringCategory(provider.serviceCategory) : false;
 
   if (loadingProvider) {
     return <View style={styles.center}><ActivityIndicator size="large" color="#2563EB" /></View>;
@@ -98,13 +119,54 @@ export default function ProviderDetailScreen() {
           {provider.bio ? <Text style={styles.bio}>{provider.bio}</Text> : null}
         </View>
 
-        {/* Book button */}
-        <TouchableOpacity
-          style={styles.bookBtn}
-          onPress={() => router.push({ pathname: '/providers/[providerId]/book', params: { providerId } })}
-        >
-          <Text style={styles.bookBtnText}>📅 Book This Provider</Text>
-        </TouchableOpacity>
+        {/* Book button(s) based on category type */}
+        {recurring && service ? (
+          <View style={styles.monthlyPlanCard}>
+            <Text style={styles.monthlyPlanTitle}>Monthly Plan</Text>
+            {service.monthlyPrice && (
+              <Text style={styles.monthlyPlanPrice}>
+                ₹{parseFloat(service.monthlyPrice).toFixed(0)}/month
+              </Text>
+            )}
+            {service.schedule && (
+              <Text style={styles.monthlyPlanSchedule}>
+                {service.schedule.daysPerWeek} days/week · {formatTimeSlot(service.schedule.timeSlot)}
+              </Text>
+            )}
+            <TouchableOpacity
+              style={styles.bookBtn}
+              onPress={() => router.push({
+                pathname: '/providers/[providerId]/book',
+                params: { providerId, bookingType: 'RECURRING' },
+              })}
+            >
+              <Text style={styles.bookBtnText}>Subscribe Monthly</Text>
+            </TouchableOpacity>
+            {service.trialPrice && (
+              <TouchableOpacity
+                style={styles.trialBtn}
+                onPress={() => router.push({
+                  pathname: '/providers/[providerId]/book',
+                  params: { providerId, bookingType: 'TRIAL' },
+                })}
+              >
+                <Text style={styles.trialBtnText}>
+                  Book 1-Day Trial - ₹{parseFloat(service.trialPrice).toFixed(0)}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.bookBtn}
+            onPress={() => router.push({
+              pathname: '/providers/[providerId]/book',
+              params: { providerId, bookingType: 'ONE_TIME' },
+            })}
+          >
+            <Text style={styles.bookBtnText}>📅 Book This Provider</Text>
+          </TouchableOpacity>
+        )}
 
         {/* 60-day availability */}
         <Text style={styles.sectionTitle}>Availability</Text>
@@ -198,11 +260,25 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   statDivider: { width: 1, height: 32, backgroundColor: '#E5E7EB' },
   bio: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20, marginTop: 4 },
+  // Monthly plan card
+  monthlyPlanCard: {
+    backgroundColor: '#fff', borderRadius: 16, padding: 20,
+    borderWidth: 2, borderColor: '#2563EB',
+    shadowColor: '#2563EB', shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3,
+  },
+  monthlyPlanTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 8 },
+  monthlyPlanPrice: { fontSize: 24, fontWeight: '700', color: '#2563EB', marginBottom: 4 },
+  monthlyPlanSchedule: { fontSize: 13, color: '#6B7280', marginBottom: 16 },
   bookBtn: {
     backgroundColor: '#2563EB', borderRadius: 14, paddingVertical: 16, alignItems: 'center',
     shadowColor: '#2563EB', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
   bookBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  trialBtn: {
+    borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 10,
+    borderWidth: 2, borderColor: '#2563EB', backgroundColor: '#fff',
+  },
+  trialBtnText: { color: '#2563EB', fontWeight: '700', fontSize: 15 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginTop: 4 },
   noReviews: { color: '#9CA3AF', fontSize: 14, textAlign: 'center', paddingVertical: 20 },
   reviewCard: {

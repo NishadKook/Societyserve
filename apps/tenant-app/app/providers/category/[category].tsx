@@ -8,6 +8,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { providersService } from '@/services/providers.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { CATEGORY_LABELS } from '@/utils/format';
+import { isRecurringCategory } from '@/utils/categories';
 import type { ProviderMembership, ServiceCategory } from '@/types';
 
 type SortOption = 'rating' | 'price' | 'experience';
@@ -134,6 +135,8 @@ export default function ProvidersListScreen() {
 
 function ProviderCard({ membership }: { membership: ProviderMembership }) {
   const { provider } = membership;
+  const recurring = isRecurringCategory(provider.serviceCategory);
+
   return (
     <TouchableOpacity
       style={styles.card}
@@ -147,9 +150,11 @@ function ProviderCard({ membership }: { membership: ProviderMembership }) {
           <Text style={styles.name}>{provider.fullName}</Text>
           <Text style={styles.exp}>{provider.experienceYears} yr{provider.experienceYears !== 1 ? 's' : ''} experience</Text>
           {provider.bio ? <Text style={styles.bio} numberOfLines={1}>{provider.bio}</Text> : null}
-          {provider.hourlyRate != null && (
-            <Text style={styles.price}>₹{provider.hourlyRate}/hr</Text>
-          )}
+          {recurring && provider.monthlyPrice != null ? (
+            <Text style={styles.price}>From ₹{provider.monthlyPrice}/month</Text>
+          ) : provider.hourlyRate != null ? (
+            <Text style={styles.price}>₹{provider.hourlyRate}/visit</Text>
+          ) : null}
         </View>
         <View style={styles.ratingBox}>
           <Text style={styles.star}>⭐</Text>
@@ -159,9 +164,9 @@ function ProviderCard({ membership }: { membership: ProviderMembership }) {
       </View>
       <TouchableOpacity
         style={styles.bookBtn}
-        onPress={() => router.push({ pathname: '/providers/[providerId]/book', params: { providerId: provider.id } })}
+        onPress={() => router.push({ pathname: '/providers/[providerId]', params: { providerId: provider.id } })}
       >
-        <Text style={styles.bookBtnText}>Book Now</Text>
+        <Text style={styles.bookBtnText}>{recurring ? 'View Plans' : 'Book Now'}</Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );

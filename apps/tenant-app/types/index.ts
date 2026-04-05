@@ -1,6 +1,6 @@
 export type UserRole = 'TENANT' | 'PROVIDER' | 'SOCIETY_ADMIN' | 'SUPER_ADMIN';
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-export type BookingType = 'ONE_TIME' | 'RECURRING';
+export type BookingType = 'ONE_TIME' | 'RECURRING' | 'TRIAL';
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'AUTO_CANCELLED';
 export type ServiceCategory = 'MAID' | 'COOK' | 'CLEANER' | 'ELECTRICIAN' | 'CARPENTER' | 'PLUMBER';
 
@@ -29,6 +29,23 @@ export interface Society {
   totalUnits: number;
 }
 
+export interface ServiceSchedule {
+  daysPerWeek: number;
+  timeSlot: string; // e.g. "07:00-09:00"
+}
+
+export interface ProviderService {
+  id: string;
+  title: string;
+  description: string | null;
+  price: string;
+  monthlyPrice: string | null;
+  trialPrice: string | null;
+  schedule: ServiceSchedule | null;
+  durationMinutes: number;
+  category: string;
+}
+
 export interface Provider {
   id: string;
   fullName: string;
@@ -37,6 +54,7 @@ export interface Provider {
   bio: string | null;
   experienceYears: number;
   hourlyRate: number;
+  monthlyPrice: number | null; // For recurring categories
   avgRating: number;
   totalReviews: number;
 }

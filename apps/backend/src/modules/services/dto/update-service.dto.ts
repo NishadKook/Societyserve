@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsInt, Min, MaxLength, IsBoolean } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsInt, Min, MaxLength, IsBoolean, IsObject } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -21,6 +21,25 @@ export class UpdateServiceDto {
   @Min(0)
   @Type(() => Number)
   price?: number;
+
+  @ApiProperty({ required: false, description: 'Monthly subscription price for recurring categories' })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Type(() => Number)
+  monthlyPrice?: number;
+
+  @ApiProperty({ required: false, description: 'One-day paid trial price for recurring categories' })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Type(() => Number)
+  trialPrice?: number;
+
+  @ApiProperty({ required: false, description: 'Schedule details for recurring services' })
+  @IsObject()
+  @IsOptional()
+  schedule?: Record<string, any>;
 
   @ApiProperty({ required: false })
   @IsInt()

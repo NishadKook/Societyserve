@@ -18,6 +18,7 @@ import {
 } from '@prisma/client';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ListBookingsDto } from './dto/list-bookings.dto';
+import { isRecurringCategory } from '../../common/utils/categories';
 
 const PLATFORM_FEE_PHASE1 = 0; // Free during pilot
 const AUTO_ACCEPT_HOURS = 48;
@@ -79,6 +80,21 @@ export class BookingsService {
     });
     if (conflict) throw new BadRequestException('Provider already has a booking at this time');
 
+    // Validate booking type against service category
+    if (isRecurringCategory(service.category)) {
+      if (dto.bookingType === BookingType.ONE_TIME) {
+        throw new BadRequestException(
+          `${service.category} is a recurring category — only RECURRING or TRIAL booking types are allowed`,
+        );
+      }
+    } else {
+      if (dto.bookingType !== BookingType.ONE_TIME) {
+        throw new BadRequestException(
+          `${service.category} is an on-demand category — only ONE_TIME booking type is allowed`,
+        );
+      }
+    }
+
     if (dto.bookingType === BookingType.RECURRING && !dto.recurrenceRule) {
       throw new BadRequestException('Recurring bookings require a recurrenceRule');
     }
@@ -130,7 +146,21 @@ export class BookingsService {
       }
     }
 
-    const workerPrice = Number(service.price);
+    // Pricing: RECURRING → monthlyPrice, TRIAL → trialPrice, ONE_TIME → price
+    let workerPrice: number;
+    if (dto.bookingType === BookingType.RECURRING) {
+      if (service.monthlyPrice == null) {
+        throw new BadRequestException('This service does not have a monthly subscription price configured');
+      }
+      workerPrice = Number(service.monthlyPrice);
+    } else if (dto.bookingType === BookingType.TRIAL) {
+      if (service.trialPrice == null) {
+        throw new BadRequestException('This service does not have a trial price configured');
+      }
+      workerPrice = Number(service.trialPrice);
+    } else {
+      workerPrice = Number(service.price);
+    }
     const platformFee = PLATFORM_FEE_PHASE1;
     const totalAmount = workerPrice + platformFee;
     const autoAcceptDeadline = new Date(Date.now() + AUTO_ACCEPT_HOURS * 60 * 60 * 1000);
